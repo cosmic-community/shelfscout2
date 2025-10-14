@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload to Cosmic media
+    // Upload to Cosmic media
     const mediaResponse = await cosmic.media.insertOne({
       media: file,
       folder: 'uploads'
@@ -47,10 +48,10 @@ export async function POST(request: NextRequest) {
                'unknown'
     const ipHash = hashIp(ip, process.env.SALT_SECRET || 'default-salt')
 
-    // Create upload record
+    // Create upload record with media object
     const upload = await createUpload({
       ipHash,
-      sourceImage: mediaResponse.media.name
+      sourceImage: mediaResponse.media
     })
 
     return NextResponse.json({

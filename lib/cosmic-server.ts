@@ -27,21 +27,28 @@ export async function getSettings(): Promise<Settings> {
 }
 
 // Create a new upload
+// Create a new upload
 export async function createUpload(data: {
   ipHash: string
-  sourceImage?: string
+  sourceImage?: any
 }): Promise<Upload> {
+  const metadata: any = {
+    status: 'pending',
+    ip_hash: data.ipHash,
+    parsed_titles: [],
+    owned_books: [],
+    notes: ''
+  }
+
+  // Only add source_image if provided
+  if (data.sourceImage) {
+    metadata.source_image = data.sourceImage
+  }
+
   const response = await cosmic.objects.insertOne({
     type: 'uploads',
     title: `Upload ${Date.now()}`,
-    metadata: {
-      status: 'pending',
-      source_image: data.sourceImage || '',
-      ip_hash: data.ipHash,
-      parsed_titles: [],
-      owned_books: [],
-      notes: ''
-    }
+    metadata
   })
   return response.object as Upload
 }
