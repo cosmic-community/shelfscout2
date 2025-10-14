@@ -74,7 +74,7 @@ async function generateRecommendations(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { uploadId, manualTitles } = body
+    let { uploadId, manualTitles } = body
 
     // Get settings for Amazon tag
     const settings = await getSettings()

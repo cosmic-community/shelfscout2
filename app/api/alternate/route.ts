@@ -22,6 +22,11 @@ async function generateAlternate(
 
   const alt = alternates[slotIndex] || alternates[0]
 
+  // Added: Ensure alt exists before using its properties
+  if (!alt) {
+    throw new Error('No alternate available')
+  }
+
   return {
     title: alt.title,
     author: alt.author,
