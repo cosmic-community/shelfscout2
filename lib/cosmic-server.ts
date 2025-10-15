@@ -27,7 +27,6 @@ export async function getSettings(): Promise<Settings> {
 }
 
 // Create a new upload
-// Create a new upload
 export async function createUpload(data: {
   ipHash: string
   sourceImage?: any
