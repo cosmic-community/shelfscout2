@@ -35,10 +35,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload to Cosmic media
-    // Upload to Cosmic media
+    // Convert File to Buffer for Cosmic SDK
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    
     const mediaResponse = await cosmic.media.insertOne({
-      media: file,
-      folder: 'uploads'
+      media: buffer,
+      folder: 'uploads',
+      metadata: {
+        originalName: file.name,
+        contentType: file.type
+      }
     })
 
     // Get IP address for rate limiting
