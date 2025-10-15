@@ -34,26 +34,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Upload to Cosmic media
-    // Convert File to Buffer for Cosmic SDK
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    
-    const mediaResponse = await cosmic.media.insertOne({
-      media: buffer,
-      folder: 'uploads',
-      metadata: {
-        originalName: file.name,
-        contentType: file.type
-      }
-    })
-
     // Get IP address for rate limiting
     const headersList = await headers()
     const ip = headersList.get('x-forwarded-for') || 
                headersList.get('x-real-ip') || 
                'unknown'
     const ipHash = hashIp(ip, process.env.SALT_SECRET || 'default-salt')
+
+    // Upload to Cosmic media
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    
+    try {
+      const mediaResponse = await cosmic.media.insertOne({
+        media: buffer,
+        folder: 'uploads',
+        metadata: {
+          originalName: file.name,
+          contentType: file.type
+        }
+      })
 
       // Create upload record with media object
       const upload = await createUpload({
@@ -66,13 +66,17 @@ export async function POST(request: NextRequest) {
         }
       })
 
-    return NextResponse.json({
-      uploadId: upload.id
-    })
+      return NextResponse.json({
+        uploadId: upload.id
+      })
+    } catch (mediaError) {
+      console.error('Cosmic media upload error:', mediaError)
+      throw new Error('Failed to upload image to Cosmic')
+    }
   } catch (error) {
     console.error('Upload error:', error)
     return NextResponse.json(
-      { error: 'Failed to upload image' },
+      { error: error instanceof Error ? error.message : 'Failed to upload image' },
       { status: 500 }
     )
   }
