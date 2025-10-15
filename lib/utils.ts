@@ -1,4 +1,7 @@
-return `${sizeInMB.toFixed(1)} MB`
+// Format file size from bytes to human-readable string
+export function formatFileSize(bytes: number): string {
+  const sizeInMB = bytes / (1024 * 1024)
+  return `${sizeInMB.toFixed(1)} MB`
 }
 
 // Detect device type from user agent
