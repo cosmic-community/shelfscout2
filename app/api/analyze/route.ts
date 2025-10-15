@@ -265,6 +265,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'No image in upload' }, { status: 400 })
       }
 
+      console.log('Analyzing image:', upload.metadata.source_image.imgix_url)
+
       // Extract books from image using AI
       parsedTitles = await visionDetectBooks(upload.metadata.source_image.imgix_url)
       ownedBooks = await normalizeBooks(parsedTitles)

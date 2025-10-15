@@ -55,6 +55,8 @@ export async function POST(request: NextRequest) {
         }
       })
 
+      console.log('Media upload successful:', mediaResponse.media?.name)
+
       // Create upload record with media object
       const upload = await createUpload({
         ipHash,
@@ -71,7 +73,10 @@ export async function POST(request: NextRequest) {
       })
     } catch (mediaError) {
       console.error('Cosmic media upload error:', mediaError)
-      throw new Error('Failed to upload image to Cosmic')
+      return NextResponse.json(
+        { error: 'Failed to upload image to Cosmic' },
+        { status: 500 }
+      )
     }
   } catch (error) {
     console.error('Upload error:', error)

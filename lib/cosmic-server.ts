@@ -29,8 +29,19 @@ export async function getSettings(): Promise<Settings> {
 // Create a new upload
 export async function createUpload(data: {
   ipHash: string
-  sourceImage?: any
+  sourceImage?: {
+    id: string
+    name: string
+    url: string
+    imgix_url: string
+  }
 }): Promise<Upload> {
+  console.log('Creating upload with data:', {
+    ipHash: data.ipHash,
+    hasSourceImage: !!data.sourceImage,
+    sourceImage: data.sourceImage
+  })
+
   const metadata: any = {
     status: 'pending',
     ip_hash: data.ipHash,
@@ -44,11 +55,15 @@ export async function createUpload(data: {
     metadata.source_image = data.sourceImage
   }
 
+  console.log('Creating upload object with metadata:', JSON.stringify(metadata, null, 2))
+
   const response = await cosmic.objects.insertOne({
     type: 'uploads',
     title: `Upload ${Date.now()}`,
     metadata
   })
+  
+  console.log('Upload object created:', response.object.id)
   return response.object as Upload
 }
 
