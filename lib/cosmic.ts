@@ -6,6 +6,7 @@ type CosmicClientWithAI = ReturnType<typeof createBucketClient> & {
     agent: (options: {
       messages: Array<{ role: string; content: string }>
       tools?: Array<{ type: string; [key: string]: any }>
+      model?: string
     }) => Promise<{
       choices?: Array<{
         message?: {

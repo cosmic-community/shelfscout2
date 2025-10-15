@@ -10,7 +10,6 @@ import { hashIp, buildAmazonLink } from '@/lib/utils'
 import { BookPick, OwnedBook } from '@/types'
 import { cosmic } from '@/lib/cosmic'
 
-// Cosmic AI Agent functions
 async function visionDetectBooks(imageUrl: string) {
   try {
     // Use Cosmic AI Agent to detect books from image
