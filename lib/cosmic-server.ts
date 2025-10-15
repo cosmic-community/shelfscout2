@@ -29,17 +29,15 @@ export async function getSettings(): Promise<Settings> {
 // Create a new upload
 export async function createUpload(data: {
   ipHash: string
-  sourceImage?: {
-    id: string
-    name: string
-    url: string
-    imgix_url: string
-  }
+  uploadSource?: string
+  sourceImageId?: string
+  sourceImageUrl?: string
 }): Promise<Upload> {
   console.log('Creating upload with data:', {
     ipHash: data.ipHash,
-    hasSourceImage: !!data.sourceImage,
-    sourceImage: data.sourceImage
+    uploadSource: data.uploadSource,
+    hasSourceImage: !!(data.sourceImageId && data.sourceImageUrl),
+    sourceImageId: data.sourceImageId
   })
 
   const metadata: any = {
@@ -50,9 +48,18 @@ export async function createUpload(data: {
     notes: ''
   }
 
-  // Only add source_image if provided
-  if (data.sourceImage) {
-    metadata.source_image = data.sourceImage
+  // Add upload source if provided
+  if (data.uploadSource) {
+    metadata.upload_source = data.uploadSource
+  }
+
+  // Add source_image as a proper reference if provided
+  if (data.sourceImageId && data.sourceImageUrl) {
+    metadata.source_image = {
+      id: data.sourceImageId,
+      url: data.sourceImageUrl,
+      imgix_url: data.sourceImageUrl
+    }
   }
 
   console.log('Creating upload object with metadata:', JSON.stringify(metadata, null, 2))

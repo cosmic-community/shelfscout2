@@ -27,12 +27,14 @@ export interface Settings extends CosmicObject {
 // Upload status type
 export type UploadStatus = 'pending' | 'analyzed' | 'failed'
 
-// Upload object
+// Upload object with proper source_image structure
 export interface Upload extends CosmicObject {
   type: 'uploads'
   metadata: {
     status: UploadStatus
     source_image?: {
+      id: string
+      name: string
       url: string
       imgix_url: string
     }
