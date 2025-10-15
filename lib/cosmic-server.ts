@@ -32,6 +32,12 @@ export async function createUpload(data: {
   uploadSource?: string
   sourceImageId?: string
   sourceImageUrl?: string
+  sourceImage?: {
+    id: string
+    name: string
+    url: string
+    imgix_url: string
+  }
 }): Promise<Upload> {
   console.log('Creating upload with data:', {
     ipHash: data.ipHash,
@@ -54,7 +60,9 @@ export async function createUpload(data: {
   }
 
   // Add source_image as a proper reference if provided
-  if (data.sourceImageId && data.sourceImageUrl) {
+  if (data.sourceImage) {
+    metadata.source_image = data.sourceImage
+  } else if (data.sourceImageId && data.sourceImageUrl) {
     metadata.source_image = {
       id: data.sourceImageId,
       url: data.sourceImageUrl,
