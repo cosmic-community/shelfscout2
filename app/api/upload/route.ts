@@ -69,72 +69,64 @@ export async function POST(request: NextRequest) {
         throw new Error(`Failed to upload to Cosmic: ${uploadResponse.statusText}`)
       }
 
-      const mediaData = await uploadResponse.json()
+      const responseData = await uploadResponse.json()
       
-      // Changed: Add comprehensive logging of the response structure
-      console.log('Full Cosmic media response:', JSON.stringify(mediaData, null, 2))
-      console.log('Response keys:', Object.keys(mediaData))
+      // Log the full response for debugging
+      console.log('Full Cosmic media API response:', JSON.stringify(responseData, null, 2))
       
-      // Changed: Handle different possible response structures from Cosmic
-      // The response might be { media: {...} } or just the media object directly
+      // Changed: Cosmic v3 Media API returns { media: {...} } structure
+      // Extract the media object from the response
       let mediaObject = null
       
-      if (mediaData.media) {
-        // Standard structure: { media: {...} }
-        mediaObject = mediaData.media
-        console.log('Found media object in mediaData.media')
-      } else if (mediaData.id && mediaData.name && mediaData.url) {
-        // Direct structure: the response IS the media object
-        mediaObject = mediaData
-        console.log('Response is the media object directly')
-      } else if (mediaData.object && mediaData.object.metadata && mediaData.object.metadata.url) {
-        // Object structure: { object: { metadata: { url, ... } } }
-        mediaObject = {
-          id: mediaData.object.id,
-          name: mediaData.object.metadata.name || mediaData.object.title,
-          url: mediaData.object.metadata.url,
-          imgix_url: mediaData.object.metadata.imgix_url || mediaData.object.metadata.url
+      if (responseData && typeof responseData === 'object') {
+        // Check if response has a 'media' property (standard Cosmic v3 structure)
+        if (responseData.media && typeof responseData.media === 'object') {
+          mediaObject = responseData.media
+          console.log('Successfully extracted media object from response.media')
+        } 
+        // Fallback: check if the response itself is the media object (has required fields)
+        else if (responseData.id && responseData.name && (responseData.url || responseData.imgix_url)) {
+          mediaObject = responseData
+          console.log('Response is the media object directly')
         }
-        console.log('Found media data in object.metadata structure')
       }
 
-      if (!mediaObject) {
-        console.error('Could not extract media object from response:', {
-          hasMedia: !!mediaData.media,
-          hasId: !!mediaData.id,
-          hasObject: !!mediaData.object,
-          responseKeys: Object.keys(mediaData)
+      // Validate that we have a media object with required fields
+      if (!mediaObject || !mediaObject.name) {
+        console.error('Invalid media object structure:', {
+          hasResponseData: !!responseData,
+          hasMediaProperty: !!(responseData && responseData.media),
+          responseKeys: responseData ? Object.keys(responseData) : [],
+          mediaObjectKeys: mediaObject ? Object.keys(mediaObject) : []
         })
-        throw new Error('No media object returned from Cosmic - unexpected response structure')
+        throw new Error('No valid media object returned from Cosmic - missing required fields')
       }
 
-      console.log('Extracted media object:', {
-        id: mediaObject.id,
+      // Ensure we have the required fields
+      const validatedMediaObject = {
+        id: mediaObject.id || '',
         name: mediaObject.name,
-        url: mediaObject.url,
-        imgix_url: mediaObject.imgix_url
-      })
+        url: mediaObject.url || mediaObject.imgix_url || '',
+        imgix_url: mediaObject.imgix_url || mediaObject.url || ''
+      }
+
+      console.log('Validated media object:', validatedMediaObject)
 
       // Create upload object with the uploaded media reference
       const upload = await createUpload({
         ipHash,
         uploadSource: uploadSource || 'web',
-        sourceImage: {
-          id: mediaObject.id,
-          name: mediaObject.name,
-          url: mediaObject.url,
-          imgix_url: mediaObject.imgix_url || mediaObject.url
-        }
+        sourceImage: validatedMediaObject
       })
 
-      console.log('Upload object created with image:', {
+      console.log('Upload object created successfully:', {
         uploadId: upload.id,
         hasSourceImage: !!upload.metadata.source_image
       })
 
       return NextResponse.json({
         uploadId: upload.id,
-        imageUrl: mediaObject.imgix_url || mediaObject.url
+        imageUrl: validatedMediaObject.imgix_url || validatedMediaObject.url
       })
     } catch (uploadError) {
       console.error('Error during image upload:', uploadError)
