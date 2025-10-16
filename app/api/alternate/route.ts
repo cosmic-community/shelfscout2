@@ -83,6 +83,11 @@ Only return the JSON object, no other text.`,
 
     const alt = alternates[slotIndex] || alternates[0]
 
+    // Changed: Added explicit check to ensure alt is defined before accessing properties
+    if (!alt) {
+      throw new Error('Failed to generate alternate recommendation')
+    }
+
     return {
       title: alt.title,
       author: alt.author,
