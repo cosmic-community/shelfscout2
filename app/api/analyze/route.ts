@@ -17,15 +17,10 @@ async function visionDetectBooks(imageUrl: string) {
       messages: [
         {
           role: 'user',
-          content: `Analyze this bookshelf image and extract all visible book titles and authors. For each book detected, provide the title, author (if visible), and a confidence score between 0 and 1. Return the results as a JSON array with objects containing: title_candidate, author_candidate (if visible), and confidence.`,
+          content: `Analyze this bookshelf image at ${imageUrl} and extract all visible book titles and authors. For each book detected, provide the title, author (if visible), and a confidence score between 0 and 1. Return the results as a JSON array with objects containing: title_candidate, author_candidate (if visible, otherwise null), and confidence.`,
         },
       ],
-      tools: [
-        {
-          type: 'vision_detect_books',
-          image_url: imageUrl,
-        },
-      ],
+      model: 'gpt-4-vision-preview',
     })
 
     // Parse the AI response
@@ -59,19 +54,10 @@ async function normalizeBooks(candidates: any[]): Promise<OwnedBook[]> {
               role: 'user',
               content: `Find detailed metadata for the book titled "${candidate.title_candidate}"${
                 candidate.author_candidate ? ` by ${candidate.author_candidate}` : ''
-              }. Look up ISBN-13, subjects/genres, publication year, and verified author name. Return as JSON with fields: title, author, isbn13, subjects (array), year.`,
+              }. Search Open Library and Google Books APIs. Return as JSON with fields: title (verified title), author (verified author name), isbn13 (ISBN-13 if found), subjects (array of genres/subjects), year (publication year). If data is not found, use the original title and author provided.`,
             },
           ],
-          tools: [
-            {
-              type: 'fetch_open_library',
-              query: candidate.title_candidate,
-            },
-            {
-              type: 'fetch_google_books',
-              query: candidate.title_candidate,
-            },
-          ],
+          model: 'gpt-4',
         })
 
         // Parse the response
@@ -159,12 +145,7 @@ Return as a JSON array with exactly 3 objects, each containing:
 Make the recommendations diverse across different genres represented in their collection.`,
         },
       ],
-      tools: [
-        {
-          type: 'llm_reason',
-          context: `User's books: ${ownedBooksDesc}`,
-        },
-      ],
+      model: 'gpt-4',
     })
 
     // Parse the AI response

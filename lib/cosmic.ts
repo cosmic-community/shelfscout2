@@ -11,6 +11,12 @@ type CosmicClientWithAI = ReturnType<typeof createBucketClient> & {
       choices?: Array<{
         message?: {
           content?: string
+          tool_calls?: Array<{
+            function?: {
+              name?: string
+              arguments?: string
+            }
+          }>
         }
       }>
     }>
