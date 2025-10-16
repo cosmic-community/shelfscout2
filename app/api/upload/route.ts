@@ -70,25 +70,60 @@ export async function POST(request: NextRequest) {
       }
 
       const mediaData = await uploadResponse.json()
-      console.log('Image uploaded to Cosmic successfully:', {
-        mediaId: mediaData.media?.id,
-        mediaName: mediaData.media?.name,
-        url: mediaData.media?.url
-      })
-
-      if (!mediaData.media) {
-        throw new Error('No media object returned from Cosmic')
+      
+      // Changed: Add comprehensive logging of the response structure
+      console.log('Full Cosmic media response:', JSON.stringify(mediaData, null, 2))
+      console.log('Response keys:', Object.keys(mediaData))
+      
+      // Changed: Handle different possible response structures from Cosmic
+      // The response might be { media: {...} } or just the media object directly
+      let mediaObject = null
+      
+      if (mediaData.media) {
+        // Standard structure: { media: {...} }
+        mediaObject = mediaData.media
+        console.log('Found media object in mediaData.media')
+      } else if (mediaData.id && mediaData.name && mediaData.url) {
+        // Direct structure: the response IS the media object
+        mediaObject = mediaData
+        console.log('Response is the media object directly')
+      } else if (mediaData.object && mediaData.object.metadata && mediaData.object.metadata.url) {
+        // Object structure: { object: { metadata: { url, ... } } }
+        mediaObject = {
+          id: mediaData.object.id,
+          name: mediaData.object.metadata.name || mediaData.object.title,
+          url: mediaData.object.metadata.url,
+          imgix_url: mediaData.object.metadata.imgix_url || mediaData.object.metadata.url
+        }
+        console.log('Found media data in object.metadata structure')
       }
+
+      if (!mediaObject) {
+        console.error('Could not extract media object from response:', {
+          hasMedia: !!mediaData.media,
+          hasId: !!mediaData.id,
+          hasObject: !!mediaData.object,
+          responseKeys: Object.keys(mediaData)
+        })
+        throw new Error('No media object returned from Cosmic - unexpected response structure')
+      }
+
+      console.log('Extracted media object:', {
+        id: mediaObject.id,
+        name: mediaObject.name,
+        url: mediaObject.url,
+        imgix_url: mediaObject.imgix_url
+      })
 
       // Create upload object with the uploaded media reference
       const upload = await createUpload({
         ipHash,
         uploadSource: uploadSource || 'web',
         sourceImage: {
-          id: mediaData.media.id,
-          name: mediaData.media.name,
-          url: mediaData.media.url,
-          imgix_url: mediaData.media.imgix_url || mediaData.media.url
+          id: mediaObject.id,
+          name: mediaObject.name,
+          url: mediaObject.url,
+          imgix_url: mediaObject.imgix_url || mediaObject.url
         }
       })
 
@@ -99,7 +134,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         uploadId: upload.id,
-        imageUrl: mediaData.media.imgix_url || mediaData.media.url
+        imageUrl: mediaObject.imgix_url || mediaObject.url
       })
     } catch (uploadError) {
       console.error('Error during image upload:', uploadError)
