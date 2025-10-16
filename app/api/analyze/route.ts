@@ -12,32 +12,55 @@ import { cosmic } from '@/lib/cosmic'
 
 async function visionDetectBooks(imageUrl: string) {
   try {
-    // Use Cosmic AI Agent to detect books from image
-    const response = await cosmic.ai.agent({
-      messages: [
-        {
-          role: 'user',
-          content: `Analyze this bookshelf image at ${imageUrl} and extract all visible book titles and authors. For each book detected, provide the title, author (if visible), and a confidence score between 0 and 1. Return the results as a JSON array with objects containing: title_candidate, author_candidate (if visible, otherwise null), and confidence.`,
-        },
-      ],
-      model: 'gpt-4-vision-preview',
+    console.log('Analyzing bookshelf image with AI vision:', imageUrl)
+    
+    // Use Cosmic AI to detect books from image
+    const response = await cosmic.ai.generateText({
+      prompt: `You are analyzing a bookshelf image. Extract all visible book titles and authors from this image.
+
+For each book you can identify:
+1. Extract the title (required)
+2. Extract the author if visible (optional)
+3. Assign a confidence score from 0.0 to 1.0 based on how clearly you can read it
+
+Return your response as a JSON array with this exact format:
+[
+  {
+    "title_candidate": "Book Title Here",
+    "author_candidate": "Author Name" or null,
+    "confidence": 0.95
+  }
+]
+
+Important:
+- Only include books where you can clearly read at least part of the title
+- If you can't read the author, set author_candidate to null
+- Be conservative with confidence scores
+- Return ONLY the JSON array, no other text`,
+      media_url: imageUrl,
+      max_tokens: 2000
     })
 
+    console.log('AI vision response received')
+
     // Parse the AI response
-    if (response.choices && response.choices[0]?.message?.content) {
-      const content = response.choices[0].message.content
+    if (response.text) {
+      console.log('AI response text:', response.text)
+      
       // Try to extract JSON from the response
-      const jsonMatch = content.match(/\[[\s\S]*\]/)
+      const jsonMatch = response.text.match(/\[[\s\S]*\]/)
       if (jsonMatch) {
-        return JSON.parse(jsonMatch[0])
+        const books = JSON.parse(jsonMatch[0])
+        console.log('Extracted books from image:', books)
+        return books
       }
     }
 
-    // Fallback if parsing fails
+    console.warn('No books detected in image - falling back to empty array')
     return []
   } catch (error) {
     console.error('Vision detection error:', error)
-    throw new Error('Failed to analyze bookshelf image')
+    throw new Error(`Failed to analyze bookshelf image: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
@@ -47,25 +70,34 @@ async function normalizeBooks(candidates: any[]): Promise<OwnedBook[]> {
 
     for (const candidate of candidates) {
       try {
-        // Use Cosmic AI Agent to fetch metadata from Open Library and Google Books
-        const response = await cosmic.ai.agent({
-          messages: [
-            {
-              role: 'user',
-              content: `Find detailed metadata for the book titled "${candidate.title_candidate}"${
-                candidate.author_candidate ? ` by ${candidate.author_candidate}` : ''
-              }. Search Open Library and Google Books APIs. Return as JSON with fields: title (verified title), author (verified author name), isbn13 (ISBN-13 if found), subjects (array of genres/subjects), year (publication year). If data is not found, use the original title and author provided.`,
-            },
-          ],
-          model: 'gpt-4',
+        console.log('Normalizing book:', candidate.title_candidate)
+        
+        // Use Cosmic AI to fetch metadata from Open Library and Google Books
+        const response = await cosmic.ai.generateText({
+          prompt: `Find detailed metadata for the book titled "${candidate.title_candidate}"${
+            candidate.author_candidate ? ` by ${candidate.author_candidate}` : ''
+          }. 
+
+Search Open Library and Google Books APIs for this book. Return as JSON with these fields:
+{
+  "title": "verified title",
+  "author": "verified author name",
+  "isbn13": "ISBN-13 if found" or null,
+  "subjects": ["genre1", "genre2"],
+  "year": publication_year or null
+}
+
+If you can't find exact data, use the original title and author provided, but try to infer likely genres based on the title.
+Return ONLY the JSON object, no other text.`,
+          max_tokens: 500
         })
 
         // Parse the response
-        if (response.choices && response.choices[0]?.message?.content) {
-          const content = response.choices[0].message.content
-          const jsonMatch = content.match(/\{[\s\S]*\}/)
+        if (response.text) {
+          const jsonMatch = response.text.match(/\{[\s\S]*\}/)
           if (jsonMatch) {
             const bookData = JSON.parse(jsonMatch[0])
+            console.log('Normalized book data:', bookData)
             normalized.push({
               title: bookData.title || candidate.title_candidate,
               author: bookData.author || candidate.author_candidate,
@@ -78,6 +110,7 @@ async function normalizeBooks(candidates: any[]): Promise<OwnedBook[]> {
         }
 
         // Fallback if parsing fails - use candidate data
+        console.warn('Could not normalize book, using raw data:', candidate.title_candidate)
         normalized.push({
           title: candidate.title_candidate,
           author: candidate.author_candidate,
@@ -122,12 +155,11 @@ async function generateRecommendations(
       })
       .join('; ')
 
-    // Use Cosmic AI Agent to generate personalized recommendations
-    const response = await cosmic.ai.agent({
-      messages: [
-        {
-          role: 'user',
-          content: `Based on these books owned by the user: ${ownedBooksDesc}
+    console.log('Generating recommendations based on:', ownedBooksDesc)
+
+    // Use Cosmic AI to generate personalized recommendations
+    const response = await cosmic.ai.generateText({
+      prompt: `Based on these books owned by the user: ${ownedBooksDesc}
 
 Analyze their reading preferences and recommend exactly 3 books they would enjoy. For each recommendation:
 1. Choose a book that matches their taste but they likely don't own
@@ -136,24 +168,29 @@ Analyze their reading preferences and recommend exactly 3 books they would enjoy
 4. Suggest one alternate book as a backup
 
 Return as a JSON array with exactly 3 objects, each containing:
-- title: string
-- author: string
-- reason: string (explanation of why it matches their taste)
-- genres: string[] (array of genres)
-- alt: object with {title: string, author: string, reason: string}
+{
+  "title": "string",
+  "author": "string",
+  "reason": "string (explanation of why it matches their taste)",
+  "genres": ["genre1", "genre2"],
+  "alt": {
+    "title": "string",
+    "author": "string",
+    "reason": "string"
+  }
+}
 
-Make the recommendations diverse across different genres represented in their collection.`,
-        },
-      ],
-      model: 'gpt-4',
+Make the recommendations diverse across different genres represented in their collection.
+Return ONLY the JSON array, no other text.`,
+      max_tokens: 2000
     })
 
     // Parse the AI response
-    if (response.choices && response.choices[0]?.message?.content) {
-      const content = response.choices[0].message.content
-      const jsonMatch = content.match(/\[[\s\S]*\]/)
+    if (response.text) {
+      const jsonMatch = response.text.match(/\[[\s\S]*\]/)
       if (jsonMatch) {
         const recommendations = JSON.parse(jsonMatch[0])
+        console.log('Generated recommendations:', recommendations)
 
         // Add Amazon URLs to recommendations
         return recommendations.slice(0, 3).map((book: any) => ({
@@ -163,13 +200,13 @@ Make the recommendations diverse across different genres represented in their co
           genres: book.genres || [],
           amazon_url: buildAmazonLink(book.title, book.author, amazonTag),
           alt: {
-            title: book.alt?.title || 'The Great Book',
-            author: book.alt?.author || 'Unknown Author',
+            title: book.alt?.title || 'The Seven Husbands of Evelyn Hugo',
+            author: book.alt?.author || 'Taylor Jenkins Reid',
             reason:
-              book.alt?.reason || 'A carefully selected alternate that matches your reading preferences.',
+              book.alt?.reason || 'A captivating story that offers a different perspective on your interests.',
             amazon_url: buildAmazonLink(
-              book.alt?.title || 'The Great Book',
-              book.alt?.author || 'Unknown Author',
+              book.alt?.title || 'The Seven Husbands of Evelyn Hugo',
+              book.alt?.author || 'Taylor Jenkins Reid',
               amazonTag
             ),
           },
@@ -245,7 +282,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'No image in upload' }, { status: 400 })
       }
 
-      // Changed: Handle source_image whether it's a string or object
+      // Handle source_image whether it's a string or object
       // When fetched from Cosmic with depth, file metafields become full objects
       const sourceImage = upload.metadata.source_image
       const imageUrl = typeof sourceImage === 'string' 

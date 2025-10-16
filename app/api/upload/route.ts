@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { createUpload } from '@/lib/cosmic-server'
 import { hashIp } from '@/lib/utils'
-import { cosmic } from '@/lib/cosmic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,49 +38,80 @@ export async function POST(request: NextRequest) {
       type: file.type
     })
 
-    // Convert File to Buffer for upload
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
+    try {
+      // Upload using fetch to Cosmic's media endpoint
+      const bucketSlug = process.env.COSMIC_BUCKET_SLUG
+      const writeKey = process.env.COSMIC_WRITE_KEY
 
-    // Upload image to Cosmic media library
-    const mediaResponse = await cosmic.media.insertOne({
-      media: buffer,
-      folder: 'bookshelf-uploads', // Organize uploads in a folder
-      metadata: {
-        upload_source: uploadSource || 'web',
-        uploaded_at: new Date().toISOString(),
-        ip_hash: ipHash
+      // Create FormData for upload
+      const uploadFormData = new FormData()
+      uploadFormData.append('media', file)
+      uploadFormData.append('folder', 'bookshelf-uploads')
+
+      const uploadResponse = await fetch(
+        `https://api.cosmicjs.com/v3/buckets/${bucketSlug}/media`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${writeKey}`,
+          },
+          body: uploadFormData,
+        }
+      )
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text()
+        console.error('Cosmic media upload failed:', {
+          status: uploadResponse.status,
+          statusText: uploadResponse.statusText,
+          error: errorText
+        })
+        throw new Error(`Failed to upload to Cosmic: ${uploadResponse.statusText}`)
       }
-    })
 
-    console.log('Image uploaded to Cosmic:', {
-      mediaId: mediaResponse.media.id,
-      mediaName: mediaResponse.media.name,
-      url: mediaResponse.media.url
-    })
+      const mediaData = await uploadResponse.json()
+      console.log('Image uploaded to Cosmic successfully:', {
+        mediaId: mediaData.media?.id,
+        mediaName: mediaData.media?.name,
+        url: mediaData.media?.url
+      })
 
-    // Create upload object with the uploaded media reference
-    const upload = await createUpload({
-      ipHash,
-      uploadSource: uploadSource || 'web',
-      sourceImage: {
-        id: mediaResponse.media.id,
-        name: mediaResponse.media.name,
-        url: mediaResponse.media.url,
-        imgix_url: mediaResponse.media.imgix_url
+      if (!mediaData.media) {
+        throw new Error('No media object returned from Cosmic')
       }
-    })
 
-    console.log('Upload object created:', upload.id)
+      // Create upload object with the uploaded media reference
+      const upload = await createUpload({
+        ipHash,
+        uploadSource: uploadSource || 'web',
+        sourceImage: {
+          id: mediaData.media.id,
+          name: mediaData.media.name,
+          url: mediaData.media.url,
+          imgix_url: mediaData.media.imgix_url || mediaData.media.url
+        }
+      })
 
-    return NextResponse.json({
-      uploadId: upload.id,
-      imageUrl: mediaResponse.media.imgix_url
-    })
+      console.log('Upload object created with image:', {
+        uploadId: upload.id,
+        hasSourceImage: !!upload.metadata.source_image
+      })
+
+      return NextResponse.json({
+        uploadId: upload.id,
+        imageUrl: mediaData.media.imgix_url || mediaData.media.url
+      })
+    } catch (uploadError) {
+      console.error('Error during image upload:', uploadError)
+      throw uploadError
+    }
   } catch (error) {
-    console.error('Upload error:', error)
+    console.error('Upload route error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to upload image' },
+      { 
+        error: error instanceof Error ? error.message : 'Failed to upload image',
+        details: error instanceof Error ? error.stack : undefined
+      },
       { status: 500 }
     )
   }

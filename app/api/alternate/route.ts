@@ -31,12 +31,9 @@ async function generateAlternate(
       .map((pick, idx) => `${idx + 1}. ${pick.title} by ${pick.author}`)
       .join('; ')
 
-    // Use Cosmic AI Agent to generate alternate recommendation
-    const response = await cosmic.ai.agent({
-      messages: [
-        {
-          role: 'user',
-          content: `Based on these books owned by the user: ${ownedBooksDesc}
+    // Use Cosmic AI to generate alternate recommendation
+    const response = await cosmic.ai.generateText({
+      prompt: `Based on these books owned by the user: ${ownedBooksDesc}
 
 Current recommendations: ${currentPicksDesc}
 
@@ -51,15 +48,12 @@ Return as a JSON object with:
 - reason: string (2-3 sentences explaining why it's a good match)
 
 Only return the JSON object, no other text.`,
-        },
-      ],
-      model: 'gpt-4',
+      max_tokens: 500
     })
 
     // Parse the AI response
-    if (response.choices && response.choices[0]?.message?.content) {
-      const content = response.choices[0].message.content
-      const jsonMatch = content.match(/\{[\s\S]*\}/)
+    if (response.text) {
+      const jsonMatch = response.text.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         const alt = JSON.parse(jsonMatch[0])
         return {
@@ -83,7 +77,7 @@ Only return the JSON object, no other text.`,
 
     const alt = alternates[slotIndex] || alternates[0]
 
-    // Changed: Added explicit check to ensure alt is defined before accessing properties
+    // Added explicit check to ensure alt is defined before accessing properties
     if (!alt) {
       throw new Error('Failed to generate alternate recommendation')
     }

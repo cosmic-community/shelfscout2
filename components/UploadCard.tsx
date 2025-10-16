@@ -63,7 +63,7 @@ export default function UploadCard({ sampleTitles }: UploadCardProps) {
 
       // Upload image
       const formData = new FormData()
-      formData.append('image', file)
+      formData.append('file', file)
 
       const uploadRes = await fetch('/api/upload', {
         method: 'POST',
