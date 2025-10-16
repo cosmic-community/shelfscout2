@@ -30,8 +30,6 @@ export async function getSettings(): Promise<Settings> {
 export async function createUpload(data: {
   ipHash: string
   uploadSource?: string
-  sourceImageId?: string
-  sourceImageUrl?: string
   sourceImage?: {
     id: string
     name: string
@@ -42,8 +40,8 @@ export async function createUpload(data: {
   console.log('Creating upload with data:', {
     ipHash: data.ipHash,
     uploadSource: data.uploadSource,
-    hasSourceImage: !!(data.sourceImageId && data.sourceImageUrl),
-    sourceImageId: data.sourceImageId
+    hasSourceImage: !!data.sourceImage,
+    sourceImageId: data.sourceImage?.id
   })
 
   const metadata: any = {
@@ -59,15 +57,11 @@ export async function createUpload(data: {
     metadata.upload_source = data.uploadSource
   }
 
-  // Add source_image as a proper reference if provided
+  // Add source_image as a proper media reference if provided
   if (data.sourceImage) {
-    metadata.source_image = data.sourceImage
-  } else if (data.sourceImageId && data.sourceImageUrl) {
-    metadata.source_image = {
-      id: data.sourceImageId,
-      url: data.sourceImageUrl,
-      imgix_url: data.sourceImageUrl
-    }
+    // Changed: Store as media reference using the media name (for Cosmic file metafield)
+    metadata.source_image = data.sourceImage.name
+    console.log('Storing source_image media reference:', data.sourceImage.name)
   }
 
   console.log('Creating upload object with metadata:', JSON.stringify(metadata, null, 2))

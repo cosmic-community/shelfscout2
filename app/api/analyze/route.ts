@@ -245,10 +245,17 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'No image in upload' }, { status: 400 })
       }
 
-      console.log('Analyzing image:', upload.metadata.source_image.imgix_url)
+      // Changed: Handle source_image whether it's a string or object
+      // When fetched from Cosmic with depth, file metafields become full objects
+      const sourceImage = upload.metadata.source_image
+      const imageUrl = typeof sourceImage === 'string' 
+        ? sourceImage 
+        : sourceImage.imgix_url
+
+      console.log('Analyzing image:', imageUrl)
 
       // Extract books from image using AI
-      parsedTitles = await visionDetectBooks(upload.metadata.source_image.imgix_url)
+      parsedTitles = await visionDetectBooks(imageUrl)
       ownedBooks = await normalizeBooks(parsedTitles)
 
       // Update upload with parsed data

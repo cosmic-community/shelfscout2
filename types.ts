@@ -27,7 +27,8 @@ export interface Settings extends CosmicObject {
 // Upload status type
 export type UploadStatus = 'pending' | 'analyzed' | 'failed'
 
-// Upload object with proper source_image structure
+// Changed: Updated Upload interface to match Cosmic file metafield structure
+// When source_image is a file metafield, it returns the full media object when fetched
 export interface Upload extends CosmicObject {
   type: 'uploads'
   metadata: {
@@ -37,11 +38,12 @@ export interface Upload extends CosmicObject {
       name: string
       url: string
       imgix_url: string
-    }
+    } | string // Can be string (media name) when stored, object when fetched
     parsed_titles?: ParsedTitle[]
     owned_books?: OwnedBook[]
     notes?: string
     ip_hash?: string
+    upload_source?: string
   }
 }
 
@@ -101,6 +103,7 @@ export interface Click extends CosmicObject {
 // API response types
 export interface UploadResponse {
   uploadId: string
+  imageUrl?: string
 }
 
 export interface AnalyzeResponse {
